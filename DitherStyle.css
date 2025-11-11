@@ -1,0 +1,62 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    background: black;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Poppins', sans-serif;
+  }
+  canvas {
+    background: black;
+  }
+  #controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-left: 20px;
+  }
+  .color-box {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-right: 5px;
+    border: 1px solid #777;
+  }
+  button {
+    padding: 8px 16px;
+    background: crimson;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  button:hover {
+    background: darkred;
+  }
+  input[type="file" ]::-webkit-file-upload-button {
+    margin-top: 10px;
+    padding: 8px 16px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 8px;
+    border: none;
+    background-color: crimson;
+    color: white;
+    font-weight: 700;
+  }
+  input[type="file" ]::-webkit-file-upload-button:hover {
+    background-color: darkred;
+  }
+  input[type="checkbox"] {
+    transform: scale(1.5);
+    margin-right: 10px;
+  }
+  blockquote {
+    font-size: 3.2rem;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+  }

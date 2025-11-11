@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wither-Dither</title>
+<link rel="icon" href="Crane.svg" type="svg">
+<link href="DitherStyle.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<canvas id="myCanvas" width="800" height="500"></canvas>
+
+<div id="controls">
+    <blockquote>Wither-Dither</blockquote>
+    <p>High resolution videos might buffer and lag, try with<br>
+        a lower resolution or with less colors!</p>
+  <label>Upload:</label>
+  <input type="file" id="upload" accept="image/*,video/*">
+
+  <label>Character:</label>
+  <input type="text" id="charInput" maxlength="1" value="█">
+
+  <label>Grain:</label>
+  <input type="checkbox" id="randomCharToggle">
+
+  <label>Grid Size:</label>
+  <input type="range" id="grid" min="4" max="64" step="4" value="16">
+
+  <label>Color rerendering time(video only!)</video></label>
+  <input type="range" id="recalculeteInterval" min="250" max="2000" value="1500" step="250">
+
+  <label>Number of Colors:</label>
+  <input type="range" id="colorCount" min="2" max="10" value="3">
+
+  <div id="palettePreview"></div>
+
+  <button id="recordBtn">Record Video</button>
+
+  <button id="downloadBtn">Download</button>
+  <footer>
+    <p> © <a href="https://github.com/BenZimmermann" target="_blank" style="color: white; font-style: normal;">Made by Ben Zimmermann </a></p>
+</div>
+
+<script>
+
+const canvas = document.getElementById("myCanvas");
+const ctx = canvas.getContext("2d");
+const upload = document.getElementById("upload");
+const charInput = document.getElementById("charInput");
+const gridSlider = document.getElementById("grid");
+const colorCountSlider = document.getElementById("colorCount");
+const palettePreview = document.getElementById("palettePreview");
+const downloadBtn = document.getElementById("downloadBtn");
+const recalculeteIntervalSlider = document.getElementById("recalculeteInterval");
+const randomCharToggle = document.getElementById("randomCharToggle");
+
+const recordBtn = document.getElementById("recordBtn");
+
+let cellSize = 32;
+let displayChar = "█";
+let palette = ["#000000", "#FFFFFF", "#FF0000"];
+let image = new Image();
+let video = document.createElement("video");
+let isVideo = false;
+let videoLoaded = false;
+let lastPaletteUpdate = 0;
+let recalculeteInterval = 1500;
+let originalFileName = "";
+//--- vid save (alpha) ---
+let recorder;
+let recordedChunks = [];
+let isRecording = false;
+//---------------
+video.loop = true;
+video.muted = true;
+video.src = "vid.mp4";
+video.play();
+isVideo = true;
+
+function extractPalette(source, colorCount = 3) {
+  const tempCanvas = document.createElement("canvas");
+  const tempCtx = tempCanvas.getContext("2d");
+
+  tempCanvas.width = source.videoWidth || source.width;
+  tempCanvas.height = source.videoHeight || source.height;
+
+  tempCtx.drawImage(source, 0, 0, tempCanvas.width, tempCanvas.height);
+  const data = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+
+  //unterstützung von KI - color palette extraction algorithm
+  //sichprobe von pixeln
+  const samples = [];
+  for (let i = 0; i < data.length; i += 160) {
+    samples.push([data[i], data[i + 1], data[i + 2]]);
+  }
+
+  //pixel clustering
+  const clusters = [];
+  for (let i = 0; i < colorCount; i++) {
+    clusters.push(samples[Math.floor(Math.random() * samples.length)]);
+  }
+
+  //Berechne die Distanz zu jedem Clusterzentrum und weise Pixel in buckets zu
+  for (let iter = 0; iter < 8; iter++) {
+    const buckets = Array.from({ length: colorCount }, () => []);
+    for (const [r, g, b] of samples) {
+      let best = 0;
+      let bestDist = Infinity;
+      for (let c = 0; c < clusters.length; c++) {
+        const [cr, cg, cb] = clusters[c];
+        const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+        if (d < bestDist) { bestDist = d; best = c; }
+      }
+      buckets[best].push([r, g, b]);
+    }
+
+    //Durchschnitt aller RGB-Werte in diesem Bucket
+    for (let c = 0; c < clusters.length; c++) {
+      if (buckets[c].length > 0) {
+        const avg = buckets[c].reduce((a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], [0, 0, 0]);
+        clusters[c] = avg.map(x => x / buckets[c].length);
+      }
+    }
+  }
+  //Nachdem die Clusterzentren gefunden sind, wandelst du sie in Hex-Farbstrings um
+  const hexColors = clusters.map(([r, g, b]) => rgbToHex(r, g, b));
+  updatePalettePreview(hexColors);
+  return hexColors;
+}
+
+function rgbToHex(r, g, b) {
+  return "#" + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, "0")).join("");
+}
+
+function updatePalettePreview(colors) {
+  palettePreview.innerHTML = colors.map(c => `<div class="color-box" style="background:${c}"></div>`).join("");
+}
+// recalculete interval
+recalculeteIntervalSlider.addEventListener("input", () => {
+  recalculeteInterval = parseInt(recalculeteIntervalSlider.value);
+});
+// Upload
+upload.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  originalFileName = file.name.split(".")[0];
+  const url = URL.createObjectURL(file);
+
+  if (file.type.startsWith("video/")) {
+    isVideo = true;
+    video.src = url;
+    video.play();
+    video.addEventListener("loadeddata", () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      palette = extractPalette(video, parseInt(colorCountSlider.value));
+      if (!videoLoaded) animate();
+      videoLoaded = true;
+    });
+  } else if (file.type.startsWith("image/")) {
+    isVideo = false;
+    image.src = url;
+    image.onload = () => {
+      canvas.width = image.width;
+      canvas.height = image.height;
+      palette = extractPalette(image, parseInt(colorCountSlider.value));
+    };
+  }
+});
+
+gridSlider.addEventListener("input", () => cellSize = parseInt(gridSlider.value));
+charInput.addEventListener("input", () => displayChar = charInput.value || "█");
+colorCountSlider.addEventListener("input", () => {
+  const n = parseInt(colorCountSlider.value);
+  if (isVideo) {
+    palette = extractPalette(video, n);
+  } else if (image.src) {
+    palette = extractPalette(image, n);
+  }
+});
+
+// download
+downloadBtn.addEventListener("click", () => {
+  const link = document.createElement("a");
+  link.download = originalFileName ? `${originalFileName}_wither-dither.png` : "wither-dither.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+})
+//vid download test (alpha version!)
+recordBtn.addEventListener("click", () => {
+  if (!isRecording) {
+    startRecording();
+  } else {
+    stopRecording();
+  }
+});
+
+function startRecording() {
+  recordedChunks = [];
+  const stream = canvas.captureStream(30); // 30 FPS Recording
+  recorder = new MediaRecorder(stream, { mimeType: "video/webm; codecs=vp9" });
+
+  recorder.ondataavailable = e => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  recorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = originalFileName
+      ? `${originalFileName}_wither-dither.webm`
+      : "wither-dither.webm";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  recorder.start();
+  isRecording = true;
+  recordBtn.textContent = "Stop Recording";
+}
+
+function stopRecording() {
+  recorder.stop();
+  isRecording = false;
+  recordBtn.textContent = "Record Video";
+}
+// closest color finder
+function hexToRgb(hex) {
+  const bigint = parseInt(hex.slice(1), 16);
+  return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+}
+
+function findClosestColor(r, g, b, colors) {
+  let best = colors[0];
+  let bestDist = Infinity;
+  for (const c of colors) {
+    const rgb = hexToRgb(c);
+    const dist = (r - rgb.r) ** 2 + (g - rgb.g) ** 2 + (b - rgb.b) ** 2;
+    if (dist < bestDist) { bestDist = dist; best = c; }
+  }
+  return best;
+}
+
+// render image/video
+function animate() {
+  const { width, height } = canvas;
+  ctx.font = `${cellSize}px Poppins`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+
+  if (isVideo) ctx.drawImage(video, 0, 0, width, height);
+  else ctx.drawImage(image, 0, 0, width, height);
+
+  const frame = ctx.getImageData(0, 0, width, height);
+  const data = frame.data;
+
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, width, height);
+
+  // Recalculate palette every ~1.5s for videos
+  if (isVideo && performance.now() - lastPaletteUpdate > recalculeteInterval) {
+    palette = extractPalette(video, parseInt(colorCountSlider.value));
+    lastPaletteUpdate = performance.now();
+  }
+
+  for (let y = 0; y < height; y += cellSize) {
+    for (let x = 0; x < width; x += cellSize) {
+      const i = (y * width + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const color = findClosestColor(r, g, b, palette);
+      ctx.fillStyle = color;
+
+    let charToDraw = displayChar;
+    if (randomCharToggle.checked) {
+      charToDraw = Math.random() < 0.5 ? "0" : "1";
+    }
+    ctx.fillText(charToDraw, x + cellSize / 2, y + cellSize / 2);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
