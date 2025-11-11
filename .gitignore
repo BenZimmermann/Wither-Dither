@@ -1,0 +1,73 @@
+# ============================
+#  BASIC HTML/CSS/JS PROJECT
+# ============================
+
+# --- OS-specific ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux temporary files
+*~
+
+# --- Editor / IDE files ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Logs & temp files ---
+*.log
+*.tmp
+*.swp
+*.bak
+*.old
+*.orig
+
+# --- Environment / config (if used) ---
+.env
+.env.local
+config.json
+
+# --- Cache directories ---
+.cache/
+tmp/
+temp/
+logs/
+
+# --- Build or export directories (optional if used) ---
+dist/
+build/
+public/
+
+# --- Miscellaneous ---
+node_modules/        # (ignored in case you add npm later)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# --- System backups ---
+*.bak
+*.backup
+*.save
+
+# --- Design / export sources (if not needed in repo) ---
+/assets/raw/
+*.psd
+*.ai
+*.blend
+*.xcf
+
+# --- Output / test files ---
+test-output/
+coverage/
+
+# ============================
+# END OF FILE
+# ============================
