@@ -25,6 +25,11 @@ It automatically extracts dominant colors, supports live re-rendering, and allow
 
 - Runs completely in the browser
 
+## No Dithering
+![](Example-Imgs/blatt.jpg)
+
+## Dithering
+![](Example-Imgs/blatt_wither-dither.png)
 # How It Works
 
 1. The uploaded image or video is drawn to a canvas element.
@@ -49,6 +54,11 @@ It automatically extracts dominant colors, supports live re-rendering, and allow
 + Images are saved as: filename_wither-dither.png
 
 + Videos are saved as: filename_wither-dither.webm or converted to .mp4
+
+# Gallery
+![](Example-Imgs/cat_3_wither-dither.png)
+![](Example-Imgs/render_wither-dither.png)
+![](Example-Imgs/Tree_wither-dither.png)
 
 # Author
 
